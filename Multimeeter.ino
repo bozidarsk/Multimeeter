@@ -1,10 +1,10 @@
-#define DELAY 100
+#define DELAY 50
 #define RANGE0 7
 #define RANGE1 8
 #define RANGE2 9
 #define RANGE3 10
 
-#define DEBUG
+// #define DEBUG
 // #define HARDWARE_RANGE
 
 double maxes[] = { 5, 5e+2, 5e+1, 5e-1, 5e-2 };
@@ -26,7 +26,7 @@ void loop()
 {
 	delay(DELAY);
 
-	#if HARDWARE_RANGE
+	#ifdef HARDWARE_RANGE
 	range = 0;
 	range |= digitalRead(RANGE0) << 0;
 	range |= digitalRead(RANGE1) << 1;
