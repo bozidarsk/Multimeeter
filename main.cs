@@ -85,9 +85,9 @@ public static class Program
 		Environment.Exit(0);
 	}
 
-	private static void ParseValues() 
+	private static void ParseValues(string portName) 
 	{
-		SerialPort port = new SerialPort("COM3", 9600);
+		SerialPort port = new SerialPort(portName, 9600);
 
 		port.Encoding = Encoding.ASCII;
 		port.NewLine = "\r\n";
@@ -209,7 +209,7 @@ public static class Program
 
 		new Thread(RenderGraph).Start();
 
-		ParseValues();
+		ParseValues(args[0]);
 		ParseCommands();
 	}
 
