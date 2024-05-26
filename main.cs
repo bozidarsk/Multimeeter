@@ -1,94 +1,74 @@
 using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-using System.Reflection;
-using System.Threading;
 using System.Text;
-using System.Linq;
 using System.IO.Ports;
-using System.IO;
+using System.Diagnostics;
 
-using OpenGL;
+using System.Windows.Forms;
+using System.Windows.Forms.DataVisualization.Charting;
 
 public static class Program 
 {
-	private static LinkedList<(double, double)> points = new();
-	private static Queue<double> queue = new();
+	public static DataPointCollection? Points;
+
+	public static Measurement SelectedMeasurement = new(MeasurementType.Voltage, 5, "0 V");
+	public static string? PortName = SerialPort.GetPortNames().FirstOrDefault();
+	public static bool IsRunning = true;
+	public const double MaxTime = 60;
+
 	private static Stopwatch watch = new();
-	private static int range = 0; // min: 0, max: 5 * 10^Range
 
-	private static MeasurementType measurementType = MeasurementType.Voltage;
-	private static readonly Dictionary<MeasurementType, MeasurementDelegate> measurements = new() 
+	public static void Export() 
 	{
-		{ MeasurementType.Voltage, Measurements.Voltage },
-		{ MeasurementType.Amperage, Measurements.Amperage },
-		{ MeasurementType.Resistance, Measurements.Resistance },
-	};
-
-	private static void ParseCommands() 
-	{
-		string? command;
-		while ((command = Console.ReadLine()) != null) 
+		IEnumerable<string> generateSVG() 
 		{
-			string[] tokens = command.Split(' ', 2);
+			yield return "<svg width=\"2\" height=\"2\" viewBox=\"0 0 2 2\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100%\" height=\"100%\" fill=\"black\"/><polyline points=\"";
 
-			if (tokens.Length == 0 || tokens[0].Length != 1) 
+			foreach (DataPoint p in Program.Points!)
+				yield return $"{p.XValue + 1},{2 - (p.YValues.Single() + 1)}";
+
+			yield return "\" style=\"fill:none;stroke:white;stroke-width:0.01\"/></svg>";
+		};
+
+		IEnumerable<string> generateCSV() 
+		{
+			yield return "Time,Value";
+
+			foreach (DataPoint p in Program.Points!)
+				yield return $"{p.XValue},{p.YValues.Single()}";
+		};
+
+		SaveFileDialog dialog = new();
+		dialog.Title = "Save Chart As";
+		dialog.Filter = "Scalable Vector Graphics|*.svg|Comma Separated Values|*.csv";
+
+		dialog.ShowDialog();
+
+		if (string.IsNullOrWhiteSpace(dialog.FileName))
+			return;
+
+		File.WriteAllLines(dialog.FileName, dialog.FilterIndex switch 
 			{
-				Console.WriteLine("System.ArgumentException");
-				continue;
-			}
+				1 => generateSVG(),
+				2 => generateCSV(),
 
-			switch (tokens[0][0]) 
-			{
-				case 'r':
-					if (int.TryParse(tokens[1], out int x))
-						if (x >= -2 && x <= 2)
-							range = x;
-						else
-							Console.WriteLine("System.ArgumentOutOfRangeException");
-					else
-						Console.WriteLine("System.FormatException");
-					continue;
-				case 'm':
-					if (Enum.TryParse<MeasurementType>(tokens[1], ignoreCase: true, out MeasurementType type))
-						measurementType = type;
-					else
-						Console.WriteLine("System.FormatException");
-					continue;
-				case 'c':
-					lock (points)
-						points.Clear();
-					lock (watch)
-						watch.Restart();
-					lock (queue)
-						queue.Clear();
-					continue;
-				case 'p':
-					try { SavePoints(tokens[1]); }
-					catch (Exception e) { Console.WriteLine(e.GetType()); }
-					continue;
-				case 'g':
-					try { SaveGraph(tokens[1]); }
-					catch (Exception e) { Console.WriteLine(e.GetType()); }
-					continue;
-				default:
-					Console.WriteLine("r INT - changes multimeeter range where min is 0 and max is 5 * 10^range");
-					Console.WriteLine("m MEASUREMENTTYPE - changes 'measurementType'");
-					Console.WriteLine("c - clears any data");
-					Console.WriteLine("p STRING - saves the points from the graph as a csv in STRING");
-					Console.WriteLine("g STRING - saves the graph as a svg in STRING");
-					continue;
+				_ => throw new InvalidOperationException()
 			}
-		}
-
-		Environment.Exit(0);
+		);
 	}
 
-	private static void ParseValues(string portName) 
+	public static void Clear() 
 	{
-		SerialPort port = new SerialPort(portName, 9600);
+		Program.Points!.Clear();
+		watch.Restart();
+	}
 
+	private static void OpenPort(SerialPort port) 
+	{
+		if (port.IsOpen)
+			port.Close();
+
+		port.PortName = PortName;
+		port.BaudRate = 9600;
 		port.Encoding = Encoding.ASCII;
 		port.NewLine = "\r\n";
 		port.DataBits = 8;
@@ -98,123 +78,53 @@ public static class Program
 
 		port.DataReceived += (s, e) => 
 		{
-			if (!double.TryParse(port.ReadLine(), out double value))
+			if (!double.TryParse(port.ReadLine(), out double value) || !IsRunning)
 				return;
 
-			lock (queue)
-				queue.Enqueue(value);
+			double time = (double)watch.ElapsedMilliseconds * 1e-3;
+			if (time > MaxTime) 
+			{
+				watch.Restart();
+				time = 0;
+			}
+
+			Console.Write(value);
+			Console.Write('\t');
+			value = Program.SelectedMeasurement.Calculate(value);
+			Console.WriteLine(value);
+
+			Program.Points!.AddXY(time, value);
 		};
 
 		port.Open();
 	}
 
-	private static void FormatPoints() 
+	[STAThread]
+	private static void Main() 
 	{
-		const double xmax = 60e+3;
-		double ymax = Measurements.Max(range);
-		double x, y;
+		Window window = new();
+		SerialPort port = new();
 
-		lock (queue) 
-		{
-			while (queue.Count > 0)
-			{
-				double value = queue.Dequeue();
-
-				y = measurements[measurementType](value, range);
-				y /= ymax;
-				y = (-1) + y * ((1) - (-1));
-
-				lock (watch)
-					x = watch.ElapsedMilliseconds;
-				x /= xmax;
-				x = (-1) + x * ((1) - (-1));
-
-				points.AddLast((x, y));
-			}
-		}
-	}
-
-	private static void SavePoints(string file) 
-	{
-		if (file == null)
-			throw new ArgumentNullException();
-
-		IEnumerable<string> generateLines() 
-		{
-			yield return "Time,Values";
-
-			lock (points)
-				foreach ((double x, double y) in points)
-					yield return $"{x},{y}";
-		};
-
-		File.WriteAllLines(file, generateLines());
-	}
-
-	private static void SaveGraph(string file) 
-	{
-		if (file == null)
-			throw new ArgumentNullException();
-
-		IEnumerable<string> generateLines() 
-		{
-			yield return "<svg width=\"2\" height=\"2\" viewBox=\"0 0 2 2\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100%\" height=\"100%\" fill=\"black\"/><polyline points=\"";
-
-			lock (points)
-				foreach ((double x, double y) in points)
-					yield return $"{x + 1},{2 - (y + 1)}";
-
-			yield return "\" style=\"fill:none;stroke:white;stroke-width:0.01\"/></svg>";
-		};
-
-		File.WriteAllLines(file, generateLines());
-	}
-
-	private static void RenderGraph() 
-	{
-		if (!GLFW.IsInitialized)
-			Environment.Exit(-1);
-
-		Window window = new Window(1280, 720, "Graph");
-		window.MakeCurrentContext();
-
-		while (!window.ShouldClose) 
-		{
-			glClear(0x4000);
-			glBegin(3);
-
-			FormatPoints();
-
-			lock (points)
-				foreach ((double x, double y) in points)
-					glVertex2d(x, y);
-
-			glEnd();
-
-			window.SwapBuffers();
-			Input.PollEvents();
-
-			lock (queue)
-				if (queue.Count > 1)
-					Console.WriteLine($"behind with {queue.Count} values");
-		}
-
-		GLFW.Terminate();
-		Environment.Exit(0);
-	}
-
-	private static void Main(string[] args) 
-	{
 		watch.Start();
 
-		new Thread(RenderGraph).Start();
+		while (true) 
+		{
+			window.Text = 
+				$"[{Program.Points!.LastOrDefault()?.YValues.Single().ToString(Program.SelectedMeasurement.Format) ?? "0"}] "
+				+ "Chart"
+				+ ((Program.PortName != null) ? $" on {Program.PortName}" : "")
+				+ (!IsRunning ? " - Paused" : "")
+			;
 
-		ParseValues(args[0]);
-		ParseCommands();
+			if (Program.PortName != null && (port.PortName != PortName || (!port.IsOpen && port.PortName != Program.PortName)))
+				OpenPort(port);
+
+			if (IsRunning && !watch.IsRunning) watch.Start();
+			if (!IsRunning && watch.IsRunning) watch.Stop();
+
+			Application.DoEvents();
+
+			if (!window.Visible) return;
+		}
 	}
-
-	[DllImport("Opengl32")] private static extern void glVertex2d(double x, double y);
-	[DllImport("Opengl32")] private static extern void glClear(int mask);
-	[DllImport("Opengl32")] private static extern void glBegin(int mode);
-	[DllImport("Opengl32")] private static extern void glEnd();
 }
