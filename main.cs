@@ -76,9 +76,9 @@ public static class Program
 		port.StopBits = StopBits.One;
 		port.RtsEnable = true;
 
-		port.DataReceived += (s, e) => 
+		port.DataReceived += static (s, e) => 
 		{
-			if (!double.TryParse(port.ReadLine(), out double value) || !IsRunning)
+			if (!double.TryParse(((SerialPort)s).ReadLine(), out double value) || !IsRunning)
 				return;
 
 			double time = (double)watch.ElapsedMilliseconds * 1e-3;
