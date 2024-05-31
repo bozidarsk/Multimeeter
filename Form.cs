@@ -49,8 +49,12 @@ public sealed class Window : Form
 					null,
 					(o, e) => 
 					{
+						if (Program.SelectedMeasurement.Equals(m))
+							return;
+
 						Program.SelectedMeasurement = m;
 						updateMeasurements((ToolStripMenuItem)o!);
+						Program.Clear();
 					}
 				) { Checked = Program.SelectedMeasurement.Equals(m) });
 			}
