@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.IO.Ports;
 using System.Diagnostics;
+using System.Linq;
 
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
@@ -10,7 +11,7 @@ public static class Program
 {
 	public static DataPointCollection? Points;
 
-	public static Measurement SelectedMeasurement = new(MeasurementType.Voltage, 5, "0 V");
+	public static Measurement SelectedMeasurement = Measurement.GetMeasurements().Where(x => x.Type == MeasurementType.Voltage && x.Max == 5).Single();
 	public static string? PortName = SerialPort.GetPortNames().FirstOrDefault();
 	public static bool IsRunning = true;
 	public const double MaxTime = 60;

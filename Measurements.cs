@@ -13,51 +13,41 @@ public sealed class Measurement
 {
 	public MeasurementType Type { get; }
 	public double Max { get; }
+	public double Reference { get; }
 	public string Format { get; }
 
 	private const double r = 10e+3;
 	private const double R1 = 90e+3;
 	private const double R2 = 990e+3;
 
-	private double AsVoltage(double percentage) => percentage * this.Max;
-
-	private double AsCurrent(double percentage) 
-	{
-		return percentage * (this.Max);
-
-
-		// double maxVoltage = r * this.Max;
-		// double voltage = percentage * maxVoltage;
-
-		// return voltage / r;
-	}
-
-	private double AsResistance(double percentage) => percentage * this.Max;
-
 	public double Calculate(double value) => this.Type switch 
 	{
-		MeasurementType.Voltage => AsVoltage(value),
-		MeasurementType.Current => AsCurrent(value),
-		MeasurementType.Resistance => AsResistance(value),
+		MeasurementType.Voltage => value * this.Max,
+		MeasurementType.Current => (value * this.Reference) / r,
+		MeasurementType.Resistance => (r / value) - r - this.Reference,
 
 		_ => throw new InvalidOperationException($"Invalid measurement type '{this.Type}'.")
 	};
 
 	public static IEnumerable<Measurement> GetMeasurements() 
 	{
-		yield return new(MeasurementType.Voltage, 50e-3, "00e-0 V");
-		yield return new(MeasurementType.Voltage, 500e-3, "000e-0 V");
-		yield return new(MeasurementType.Voltage, 5, "0 V");
-		yield return new(MeasurementType.Voltage, 50, "00 V");
-		yield return new(MeasurementType.Voltage, 500, "000 V");
+		yield return new(MeasurementType.Voltage, 50e-3, 0, "#0e-0 V");
+		yield return new(MeasurementType.Voltage, 500e-3, 0, "##0e-0 V");
+		yield return new(MeasurementType.Voltage, 5, 0, "0 V");
+		yield return new(MeasurementType.Voltage, 50, 0, "#0 V");
+		yield return new(MeasurementType.Voltage, 500, 0, "##0 V");
 
-		yield return new(MeasurementType.Current, 5e-6, "0e-0 A");
-		yield return new(MeasurementType.Current, 50e-6, "00e-0 A");
-		yield return new(MeasurementType.Current, 500e-6, "000e-0 A");
-		yield return new(MeasurementType.Current, 5e-3, "0e-0 A");
-		yield return new(MeasurementType.Current, 50e-3, "00e-0 A");
+		yield return new(MeasurementType.Current, 5e-6, 2.5, "0e-0 A");
+		yield return new(MeasurementType.Current, 50e-6, 2.5, "#0e-0 A");
+		yield return new(MeasurementType.Current, 500e-6, 5, "##0e-0 A");
+		yield return new(MeasurementType.Current, 5e-3, 50, "0e-0 A");
+		yield return new(MeasurementType.Current, 50e-3, 500, "#0e-0 A");
 
-		yield return new(MeasurementType.Resistance, 10e+6, "00e+0 Ω");
+		yield return new(MeasurementType.Resistance, 1e+3, 0, "###0 Ω");
+		yield return new(MeasurementType.Resistance, 10e+3, 0, "#0e+0 Ω");
+		yield return new(MeasurementType.Resistance, 100e+3, 0, "##0e+0 Ω");
+		yield return new(MeasurementType.Resistance, 1e+6, 0, "#e+0 Ω");
+		yield return new(MeasurementType.Resistance, 10e+6, 0, "#0e+0 Ω");
 	}
 
 	public override bool Equals(object? other) 
@@ -66,8 +56,10 @@ public sealed class Measurement
 			return false;
 
 		Measurement x = (Measurement)other;
-		return this.Type == x.Type && this.Max == x.Max && this.Format == x.Format;
+		return this.Type == x.Type && this.Max == x.Max && this.Reference == x.Reference && this.Format == x.Format;
 	}
 
-	public Measurement(MeasurementType type, double max, string format) => (this.Type, this.Max, this.Format) = (type, max, format);
+	public Measurement(MeasurementType type, double max, double reference, string format) => 
+		(this.Type, this.Max, this.Reference, this.Format) = (type, max, reference, format)
+	;
 }
