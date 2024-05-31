@@ -22,12 +22,12 @@ public static class Program
 	{
 		IEnumerable<string> generateSVG() 
 		{
-			yield return "<svg width=\"2\" height=\"2\" viewBox=\"0 0 2 2\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100%\" height=\"100%\" fill=\"black\"/><polyline points=\"";
+			yield return $"<svg width=\"2\" height=\"2\" viewBox=\"0 0 1 1\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100%\" height=\"100%\" fill=\"white\"/><polyline points=\"";
 
 			foreach (DataPoint p in Program.Points!)
-				yield return $"{p.XValue + 1},{2 - (p.YValues.Single() + 1)}";
+				yield return $"{p.XValue / MaxTime},{p.YValues.Single() / Program.SelectedMeasurement.Max}";
 
-			yield return "\" style=\"fill:none;stroke:white;stroke-width:0.01\"/></svg>";
+			yield return "\" style=\"fill:none;stroke:black;stroke-width:0.01\"/></svg>";
 		};
 
 		IEnumerable<string> generateCSV() 
