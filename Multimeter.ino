@@ -1,11 +1,26 @@
-const double internalRef = 2.5;
+uint8_t cathode = 0;
+
+void toggleCathode() 
+{
+	cathode ^= 1;
+	digitalWrite(4, cathode);
+	digitalWrite(LED_BUILTIN, cathode);
+}
 
 void setup() 
 {
-	pinMode(A4, INPUT);
-	pinMode(A5, INPUT);
+	pinMode(4, OUTPUT);
+	digitalWrite(4, cathode);
+	pinMode(LED_BUILTIN, OUTPUT);
+	digitalWrite(LED_BUILTIN, cathode);
+
+	pinMode(10, OUTPUT);
+	digitalWrite(10, HIGH);
 
 	Serial.begin(9600, SERIAL_8N1);
+
+	attachInterrupt(digitalPinToInterrupt(3), toggleCathode, FALLING);
+	interrupts();
 }
 
 void loop() 
@@ -13,14 +28,6 @@ void loop()
 	delay(100);
 
 	double value = analogRead(A0) / 1023.0;
-
-	int range = (!digitalRead(A4) << 1) | !digitalRead(A5);
-	analogReference((range == 0) ? DEFAULT : INTERNAL);
-
-	if (range == 0b01)
-		value *= internalRef / 0.5;
-	if (range == 0b11)
-		value *= internalRef / 0.05;
 
 	Serial.println(value, 10);
 }
