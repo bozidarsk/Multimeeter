@@ -111,7 +111,8 @@ public static class Program
 		while (true) 
 		{
 			window.Text = 
-				$"[{Program.Points!.LastOrDefault()?.YValues.Single().ToString(Program.SelectedMeasurement.Format) ?? "0"}] "
+				// $"[{Program.Points!.LastOrDefault()?.YValues.Single().ToString(Program.SelectedMeasurement.Format) ?? "0"}] "
+				$"[{Program.Points!.LastOrDefault()?.YValues.Single().ToString("e") ?? "0"}] "
 				+ "Chart"
 				+ ((Program.PortName != null) ? $" on {Program.PortName}" : "")
 				+ (!IsRunning ? " - Paused" : "")
