@@ -19,7 +19,7 @@ public sealed class Measurement
 	public double Calculate(double value) => this.Type switch 
 	{
 		MeasurementType.Voltage => value * this.Reference,
-		MeasurementType.Current => value * this.Reference,
+		MeasurementType.Current => value * (5 / this.Reference),
 		MeasurementType.Resistance => (this.Reference * value) / (1 - value),
 
 		_ => throw new InvalidOperationException($"Invalid measurement type '{this.Type}'.")
@@ -33,11 +33,11 @@ public sealed class Measurement
 		yield return new(MeasurementType.Voltage, 50, 50, "#0 V");
 		yield return new(MeasurementType.Voltage, 500, 500, "##0 V");
 
-		yield return new(MeasurementType.Current, 5e-6, 5 / 1.1, "0e-0 A");
-		yield return new(MeasurementType.Current, 50e-6, 5 / 1.1, "#0e-0 A");
-		yield return new(MeasurementType.Current, 500e-6, 5 / 1.1, "##0e-0 A");
-		yield return new(MeasurementType.Current, 5e-3, 50 / 1.1, "0e-0 A");
-		yield return new(MeasurementType.Current, 50e-3, 500 / 1.1, "#0e-0 A");
+		yield return new(MeasurementType.Current, 5e-6, 10e+3, "0e-0 A");
+		yield return new(MeasurementType.Current, 50e-6, 10e+3, "#0e-0 A");
+		yield return new(MeasurementType.Current, 500e-6, 10e+3, "##0e-0 A");
+		yield return new(MeasurementType.Current, 5e-3, 1e+1, "0e-0 A");
+		yield return new(MeasurementType.Current, 50e-3, 1e+2, "#0e-0 A");
 
 		yield return new(MeasurementType.Resistance, 1e+3, 10e+3, "###0 Ω");
 		yield return new(MeasurementType.Resistance, 10e+3, 10e+3, "#0e+0 Ω");
